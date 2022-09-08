@@ -6,6 +6,9 @@
 //
 
 import Foundation
+import Dispatch
+
+signal(SIGINT, SIG_IGN)
 
 let arguments = ArguemntParser.parse(arguments: CommandLine.arguments, config: [
     OptionType(withKey: "-t", hasValue: true),
@@ -27,6 +30,15 @@ let crawler = Crawler(
     verbose: arguments.hasOption(key: "-v"),
     outputFileLocation: fileLocation
 )
+
+let sigintSrc = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
+sigintSrc.setEventHandler {
+    
+    print("\nabort job...")
+    crawler.generateOutput()
+    exit(0)
+}
+sigintSrc.resume()
 
 if (arguments.arguments.count > 0) {
     crawler.crawl(from: arguments.arguments.last!.value)
