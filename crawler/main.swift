@@ -44,6 +44,7 @@ if (arguments.arguments.count > 0) {
     crawler.crawl(from: arguments.arguments.last!.value)
     RunLoop.main.run()
 } else {
+    print("possible call: \n./crawler -v -t 10 -filter \"/fileadmin/,tx_news,tx_t3events_events\" -o ~/Desktop/list.txt https://abda11.ddev.local/")
     print("no url - exit")
 }
 

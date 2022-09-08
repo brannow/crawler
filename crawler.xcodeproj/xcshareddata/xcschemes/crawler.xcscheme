@@ -65,7 +65,7 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-t 10"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-v"

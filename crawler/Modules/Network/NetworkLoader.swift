@@ -21,6 +21,12 @@ class NetworkLoader
     
     func load(withTask crawlerTask: CrawlerTask) -> Void
     {
+        if (crawlerTask.url.absoluteString.contains("?")) {
+            var i: Int = 0;
+            i += 1;
+            print(i)
+        }
+        
         eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         let request = RestRequest(
             method: HTTPMethod.get,
