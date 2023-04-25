@@ -56,23 +56,19 @@
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "-limit 30"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "-filter /fileadmin/,tx_news_pi1"
+            argument = "-filter &quot;/fileadmin/,print,solr&quot;"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-t 10"
-            isEnabled = "NO">
+            isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
             argument = "-v"
             isEnabled = "YES">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "https://www.abda.de/"
+            argument = "https://www.umwelt-im-unterricht.de/"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>

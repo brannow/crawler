@@ -40,7 +40,7 @@ class HTMLLinkParser
                     guard !NSEqualRanges(nsRange, NSMakeRange(NSNotFound, 0)) else { continue }
                     let substr = html.substring(with: nsRange)
                     var link = String(substr ?? "")
-                    link = link.replacingOccurrences(of: "&amp;", with: "&").decodeUrl()!
+                    link = link.replacingOccurrences(of: "&amp;", with: "&").decodeUrl() ?? link
                     
                     // remove unused requets stuff like /link/awd/ad#asdadw
                     if (link.contains("#")) {

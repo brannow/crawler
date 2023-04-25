@@ -10,6 +10,7 @@
 		433FACE928C8470500B898C0 /* TaskPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 433FACE828C8470500B898C0 /* TaskPool.swift */; };
 		4389382A28C65EEE00825664 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4389382928C65EEE00825664 /* main.swift */; };
 		4389383328C6618E00825664 /* Crawler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4389383228C6618E00825664 /* Crawler.swift */; };
+		4398DD3829F7A47A007A91D8 /* CacheControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4398DD3729F7A47A007A91D8 /* CacheControl.swift */; };
 		43B7344728C8AD4800AE741D /* OutputGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43B7344628C8AD4800AE741D /* OutputGenerator.swift */; };
 		43C1D23928C704AC00432622 /* NetworkLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43C1D23828C704AC00432622 /* NetworkLoader.swift */; };
 		43C1D24128C707AD00432622 /* CommandArgumentParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43C1D24028C707AD00432622 /* CommandArgumentParser.swift */; };
@@ -37,6 +38,7 @@
 		4389382628C65EEE00825664 /* crawler */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = crawler; sourceTree = BUILT_PRODUCTS_DIR; };
 		4389382928C65EEE00825664 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		4389383228C6618E00825664 /* Crawler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Crawler.swift; sourceTree = "<group>"; };
+		4398DD3729F7A47A007A91D8 /* CacheControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheControl.swift; sourceTree = "<group>"; };
 		43B7344628C8AD4800AE741D /* OutputGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputGenerator.swift; sourceTree = "<group>"; };
 		43C1D23828C704AC00432622 /* NetworkLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkLoader.swift; sourceTree = "<group>"; };
 		43C1D24028C707AD00432622 /* CommandArgumentParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandArgumentParser.swift; sourceTree = "<group>"; };
@@ -119,6 +121,7 @@
 			children = (
 				43C1D27328C7354D00432622 /* CrawlerTask.swift */,
 				433FACE828C8470500B898C0 /* TaskPool.swift */,
+				4398DD3729F7A47A007A91D8 /* CacheControl.swift */,
 			);
 			path = DTO;
 			sourceTree = "<group>";
@@ -190,6 +193,7 @@
 				4389383328C6618E00825664 /* Crawler.swift in Sources */,
 				43C1D27028C734D000432622 /* HTMLLinkParser.swift in Sources */,
 				43C1D23928C704AC00432622 /* NetworkLoader.swift in Sources */,
+				4398DD3829F7A47A007A91D8 /* CacheControl.swift in Sources */,
 				43C1D24C28C7217900432622 /* NetworkLoaderDelegate.swift in Sources */,
 				4389382A28C65EEE00825664 /* main.swift in Sources */,
 				43C1D27428C7354D00432622 /* CrawlerTask.swift in Sources */,

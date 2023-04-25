@@ -200,7 +200,10 @@ class Crawler: NetworkLoaderDelegate
             
             let status: String = String(task.code)
             let time: String = String(task.requestTime) + "ms"
-            let output = timestamp + " " + numOfTasks + " " + status + " " + time + " " + String(task.url.absoluteString)
+            
+            let cc: CacheControl = CacheControl(headers: task.header);
+            
+            let output = timestamp + " " + numOfTasks + " " + status + " " + String(cc.cacheable) + " " + String(cc.maxAge) + " " + time + " " + String(task.url.absoluteString)
             
             print(output);
         }

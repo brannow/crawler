@@ -26,12 +26,13 @@ class OutputGenerator {
         for pid in task.parentId {
             pids.append(String(pid))
         }
+        let cc: CacheControl = CacheControl(headers: task.header);
         
-        return String(pool.getId(forTask: task)) + " " + pids.joined(separator: ",") + " " + String(task.code) + " " + String(task.requestTime) + " " + task.url.absoluteString
+        return String(pool.getId(forTask: task)) + " " + pids.joined(separator: ",") + " " + String(task.code) + " " + String(cc.cacheable) + " " + String(cc.maxAge) + " " + String(task.requestTime) + " " + task.url.absoluteString
     }
     
     private static func generateOutputLineHeader() -> String
     {
-        return "ID Parent_Ids HTTP_CODE Request_Time_MS URL"
+        return "ID Parent_Ids HTTP_CODE cacheable maxAge Request_Time_MS URL"
     }
 }
