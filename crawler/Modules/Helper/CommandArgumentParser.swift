@@ -29,9 +29,9 @@ struct OptionType {
     }
 }
 
-class ArguemntParser {
+class ArgumentParser {
     
-    static func parse(arguments:[String], config: [OptionType]) -> CommandArguemntResult
+    static func parse(arguments:[String], config: [OptionType]) -> CommandArgumentResult
     {
         return self.parseInternal(array: arguments, config: config)
     }
@@ -46,9 +46,9 @@ class ArguemntParser {
         return nil
     }
     
-    private static func parseInternal(array:[String], config: [OptionType]) -> CommandArguemntResult
+    private static func parseInternal(array:[String], config: [OptionType]) -> CommandArgumentResult
     {
-        var result = CommandArguemntResult();
+        var result = CommandArgumentResult();
         var optionValueList: [String] = [String]()
         
         

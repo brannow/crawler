@@ -15,18 +15,28 @@ class NetworkLoader
     var delegate: NetworkLoaderDelegate?
     var eventLoopGroup: MultiThreadedEventLoopGroup?
     
+    // Shared EventLoopGroup for all network operations - use system core count or default to 4
+    private static let sharedEventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: ProcessInfo.processInfo.processorCount > 0 ? ProcessInfo.processInfo.processorCount : 4)
+    
+    deinit {
+        // Clean up individual EventLoopGroup if it exists
+        if let elg = eventLoopGroup {
+            try? elg.syncShutdownGracefully()
+        }
+    }
+    
     func setDelegate(delegate: NetworkLoaderDelegate?) {
         self.delegate = delegate
     }
     
     func load(withTask crawlerTask: CrawlerTask) -> Void
     {
-        eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        // Use shared EventLoopGroup to prevent memory leaks
         let request = RestRequest(
             method: HTTPMethod.get,
             url: crawlerTask.url.absoluteString,
             insecure: true,
-            eventLoopGroup: eventLoopGroup
+            eventLoopGroup: NetworkLoader.sharedEventLoopGroup
         )
         request.headerParameters.removeAll()
         request.acceptType = "*/*"
@@ -65,7 +75,7 @@ class NetworkLoader
                 task.header = headers
                 task.requestTime = requestTimeMS
                 
-                try? self.eventLoopGroup!.syncShutdownGracefully()
+                // No need to shutdown shared EventLoopGroup
                 self.delegate!.complete(loader: self, task: task, urls: newUrls)
             }
         }

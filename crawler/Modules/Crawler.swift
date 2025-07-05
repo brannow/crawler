@@ -53,8 +53,8 @@ class Crawler: NetworkLoaderDelegate
         if (self.fileLocation != nil) {
             do {
                 let fileManager = FileManager.default
-                if fileManager.fileExists(atPath: self.fileLocation!.absoluteString) {
-                    try fileManager.removeItem(atPath: self.fileLocation!.absoluteString)
+                if fileManager.fileExists(atPath: self.fileLocation!.path) {
+                    try fileManager.removeItem(atPath: self.fileLocation!.path)
                 }
                 try "".write(to: self.fileLocation!, atomically: true, encoding: .utf8)
             } catch {
@@ -102,16 +102,16 @@ class Crawler: NetworkLoaderDelegate
     
     func warmupThreads() -> Void {
         
-        if ((self.pool.openTask.count + self.pool.porcessTask.count) == 0) {
+        if ((self.pool.openTask.count + self.pool.processTask.count) == 0) {
             generateOutput()
             exit(0)
         }
         
         if (self.limit > 0) {
-            let limitTaskCount = self.pool.porcessTask.count + self.pool.finishTask.count
+            let limitTaskCount = self.pool.processTask.count + self.pool.finishTask.count
             if (limitTaskCount >= self.limit) {
                 
-                if (self.pool.porcessTask.count == 0) {
+                if (self.pool.processTask.count == 0) {
                     generateOutput()
                     exit(0)
                 }
@@ -139,7 +139,7 @@ class Crawler: NetworkLoaderDelegate
             return false
         }
         
-        DispatchQueue.background(delay: 0.5, background: {
+        DispatchQueue.background(delay: 0.1, background: {
             self.process(task: task!)
         }, completion: {
             self.warmupThreads()

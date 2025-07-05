@@ -10,11 +10,13 @@ import Foundation
 class TaskPool {
     
     var openTask: [UInt: CrawlerTask] = [:]
-    var porcessTask: [UInt: CrawlerTask] = [:]
+    var processTask: [UInt: CrawlerTask] = [:]
     var finishTask: [UInt: CrawlerTask] = [:]
     var blacklist: [UInt: CrawlerTask] = [:]
     var allTasks: [UInt: CrawlerTask] = [:]
-    var urlList: [String] = []
+    var urlSet: Set<String> = Set<String>()
+    var urlToIdMap: [String: UInt] = [:]
+    private var nextId: UInt = 0
     
     func getId(forTask task: CrawlerTask) -> UInt {
         
@@ -29,15 +31,18 @@ class TaskPool {
     
     private func getId(forString link:String) -> UInt
     {
-        let uid: Int = Int(urlList.firstIndex(of: link) ?? -1)
-        if (uid >= 0) {
-            return UInt(uid)
+        // Check if URL already exists
+        if let existingId = urlToIdMap[link] {
+            return existingId
         }
         
-        let newUid = urlList.endIndex
-        urlList.insert(link, at: newUid)
+        // Create new ID for URL
+        let newId = nextId
+        nextId += 1
+        urlSet.insert(link)
+        urlToIdMap[link] = newId
         
-        return UInt(newUid);
+        return newId
     }
     
     private func getId(forUrl url:URL) -> UInt
@@ -75,7 +80,7 @@ class TaskPool {
         
         let taskId = self.getId(forTask: task)
         
-        if (openTask[taskId] == nil && porcessTask[taskId] == nil && finishTask[taskId] == nil) {
+        if (openTask[taskId] == nil && processTask[taskId] == nil && finishTask[taskId] == nil) {
             openTask[taskId] = task
         }
         
@@ -112,7 +117,7 @@ class TaskPool {
         let task = openTask.popFirst()?.value
         if (task != nil) {
             let taskId = self.getId(forTask: task!)
-            porcessTask[taskId] = task
+            processTask[taskId] = task
         }
         
         return task
@@ -121,13 +126,13 @@ class TaskPool {
     func finish(task: CrawlerTask) -> Void {
         
         let taskId = self.getId(forTask: task)
-        if (porcessTask[taskId] != nil) {
-            porcessTask[taskId] = nil
+        if (processTask[taskId] != nil) {
+            processTask[taskId] = nil
         }
         finishTask[taskId] = task
     }
     
     func processedCount() -> UInt {
-        return UInt(porcessTask.count)
+        return UInt(processTask.count)
     }
 }

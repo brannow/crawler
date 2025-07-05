@@ -10,7 +10,7 @@ import Dispatch
 
 signal(SIGINT, SIG_IGN)
 
-let arguments = ArguemntParser.parse(arguments: CommandLine.arguments, config: [
+let arguments = ArgumentParser.parse(arguments: CommandLine.arguments, config: [
     OptionType(withKey: "-t", hasValue: true),
     OptionType(withKey: "-v"),
     OptionType(withKey: "-filter", hasValue: true),
@@ -44,7 +44,7 @@ if (arguments.arguments.count > 0) {
     crawler.crawl(from: arguments.arguments.last!.value)
     RunLoop.main.run()
 } else {
-    print("possible call: \n./crawler -v -t 10 -filter \"/fileadmin/,tx_news,tx_t3events_events\" -o ~/Desktop/list.txt https://abda11.ddev.local/")
+    print("possible call: \n./crawler -v -t 10 -filter \"/fileadmin/,tx_news,tx_t3events_events\" -o ~/Desktop/list.txt https://your-domain/")
     print("no url - exit")
 }
 

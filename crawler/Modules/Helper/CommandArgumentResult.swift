@@ -29,7 +29,7 @@ struct Option {
     }
 }
 
-struct CommandArguemntResult {
+struct CommandArgumentResult {
     var options:[Option] = [Option]()
     var arguments:[Argument] = [Argument]()
     

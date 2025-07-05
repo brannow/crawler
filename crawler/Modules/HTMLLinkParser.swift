@@ -25,12 +25,13 @@ extension String {
 
 class HTMLLinkParser
 {
+    // Cache compiled regex for better performance
+    private static let linkRegex = try! NSRegularExpression(pattern: #"<a\s+(?:[^>]*?\s+)?href=(["\'])(.*?)\1"#, options: .anchorsMatchLines)
+    
     static func parse(html: String, baseUrl: URL) -> Set<String>
     {
-        let pattern = #"<a\s+(?:[^>]*?\s+)?href=(["\'])(.*?)\1"#
-        let regex = try! NSRegularExpression(pattern: pattern, options: .anchorsMatchLines)
         let stringRange = NSRange(location: 0, length: html.utf16.count)
-        let matches = regex.matches(in: html, range: stringRange)
+        let matches = linkRegex.matches(in: html, range: stringRange)
         
         var result: Set<String> = []
         for match in matches {
