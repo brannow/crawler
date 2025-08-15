@@ -76,7 +76,7 @@ class NetworkLoader
                 task.requestTime = requestTimeMS
                 
                 // No need to shutdown shared EventLoopGroup
-                self.delegate!.complete(loader: self, task: task, urls: newUrls)
+                self.delegate!.complete(loader: self, task: task, urls: newUrls, html: html)
             }
         }
     }

@@ -8,6 +8,6 @@
 import Foundation
 
 protocol NetworkLoaderDelegate {
-    func complete(loader: NetworkLoader, task: CrawlerTask, urls: Set<String>) -> Void
+    func complete(loader: NetworkLoader, task: CrawlerTask, urls: Set<String>, html: String) -> Void
     func getBaseUrl(loader: NetworkLoader, task: CrawlerTask) -> URL
 }

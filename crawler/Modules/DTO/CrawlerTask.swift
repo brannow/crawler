@@ -15,6 +15,7 @@ class CrawlerTask {
     var code: UInt = 0
     var requestTime: Double = 0.0
     var id: UInt? = nil
+    var matchedKeywords: [String] = []
     
     init (url: URL) {
         self.url = url

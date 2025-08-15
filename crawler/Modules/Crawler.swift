@@ -27,10 +27,11 @@ class Crawler: NetworkLoaderDelegate
     var pool: TaskPool
     let verbose: Bool
     let filterList: [String]
+    let keywordsList: [String]
     let limit: UInt
     var fileLocation: URL? = nil
     
-    init(withThreads: UInt = 1, filter: String, limit: UInt = 0, verbose: Bool, outputFileLocation: String = "")
+    init(withThreads: UInt = 1, filter: String, keywords: String, limit: UInt = 0, verbose: Bool, outputFileLocation: String = "")
     {
         self.pool = TaskPool()
         self.verbose = verbose
@@ -47,6 +48,11 @@ class Crawler: NetworkLoaderDelegate
         var mutateFilter = filter
         mutateFilter.removeAll(where: { removeCharacters.contains($0) } )
         filterList = mutateFilter.components(separatedBy: ",")
+        
+        // Process keywords similar to filter, but handle escaped commas
+        var mutateKeywords = keywords
+        mutateKeywords.removeAll(where: { removeCharacters.contains($0) } )
+        keywordsList = mutateKeywords.components(separatedBy: ",").filter { !$0.isEmpty }
     }
     
     func createEmptyOutputFile() -> Void {
@@ -156,8 +162,11 @@ class Crawler: NetworkLoaderDelegate
         loader.load(withTask: task)
     }
     
-    func complete(loader: NetworkLoader, task: CrawlerTask, urls: Set<String>) -> Void
+    func complete(loader: NetworkLoader, task: CrawlerTask, urls: Set<String>, html: String) -> Void
     {
+        // Search for keywords in HTML content
+        task.matchedKeywords = findKeywordsInHtml(html: html)
+        
         for link in urls {
             let url: URL? = URL(string: link)
             if (url == nil) {
@@ -188,6 +197,25 @@ class Crawler: NetworkLoaderDelegate
         return false
     }
     
+    func findKeywordsInHtml(html: String) -> [String] {
+        var foundKeywords: [String] = []
+        
+        if keywordsList.isEmpty {
+            return foundKeywords
+        }
+        
+        let lowercaseHtml = html.lowercased()
+        
+        for keyword in keywordsList {
+            let lowercaseKeyword = keyword.lowercased()
+            if lowercaseHtml.contains(lowercaseKeyword) {
+                foundKeywords.append(keyword)
+            }
+        }
+        
+        return foundKeywords
+    }
+    
     func printTask(task: CrawlerTask) -> Void {
         
         if (self.verbose == true) {
@@ -203,7 +231,8 @@ class Crawler: NetworkLoaderDelegate
             
             let cc: CacheControl = CacheControl(headers: task.header);
             
-            let output = timestamp + " " + numOfTasks + " " + status + " " + String(cc.cacheable) + " " + String(cc.maxAge) + " " + time + " " + String(task.url.absoluteString)
+            let keywordsOutput = task.matchedKeywords.isEmpty ? "" : " [" + task.matchedKeywords.joined(separator: ",") + "]"
+            let output = timestamp + " " + numOfTasks + " " + status + " " + String(cc.cacheable) + " " + String(cc.maxAge) + " " + time + " " + String(task.url.absoluteString) + keywordsOutput
             
             print(output);
         }
