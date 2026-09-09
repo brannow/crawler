@@ -29,10 +29,12 @@ class Crawler: NetworkLoaderDelegate
     let filterList: [String]
     let keywordsList: [String]
     let limit: UInt
+    let maxAttempts: UInt
     var fileLocation: URL? = nil
     
-    init(withThreads: UInt = 1, filter: String, keywords: String, limit: UInt = 0, verbose: Bool, outputFileLocation: String = "")
+    init(withThreads: UInt = 1, filter: String, keywords: String, limit: UInt = 0, verbose: Bool, outputFileLocation: String = "", maxAttempts: UInt = 3)
     {
+        self.maxAttempts = maxAttempts < 1 ? 1 : maxAttempts
         self.pool = TaskPool()
         self.verbose = verbose
         numOfThreads = withThreads;
@@ -131,7 +133,10 @@ class Crawler: NetworkLoaderDelegate
             return
         }
         
-        for _ in processedCount...self.numOfThreads {
+        // Half-open range on purpose. This was `processedCount...self.numOfThreads`,
+        // a CLOSED range, which starts one MORE request than asked for -- `-t 4`
+        // ran 5 in flight and `-limit 250` fetched 251.
+        for _ in processedCount..<self.numOfThreads {
             if (execute() == false) {
                 break;
             }
@@ -159,6 +164,7 @@ class Crawler: NetworkLoaderDelegate
     {
         let loader = NetworkLoader();
         loader.setDelegate(delegate: self)
+        loader.maxAttempts = self.maxAttempts
         loader.load(withTask: task)
     }
     
@@ -226,13 +232,21 @@ class Crawler: NetworkLoaderDelegate
             format.dateFormat = "[HH:mm:ss]"
             let timestamp = format.string(from: date)
             
-            let status: String = String(task.code)
+            // A transport failure has no status code -- say so, rather than
+            // printing a 0 that reads like "not fetched".
+            let status: String = task.transportError != nil ? "ERR" : String(task.code)
             let time: String = String(task.requestTime) + "ms"
             
             let cc: CacheControl = CacheControl(headers: task.header);
             
             let keywordsOutput = task.matchedKeywords.isEmpty ? "" : " [" + task.matchedKeywords.joined(separator: ",") + "]"
-            let output = timestamp + " " + numOfTasks + " " + status + " " + String(cc.cacheable) + " " + String(cc.maxAge) + " " + time + " " + String(task.url.absoluteString) + keywordsOutput
+            var errorOutput = ""
+            if let reason = task.transportError {
+                errorOutput = " <" + reason + (task.attempts > 1 ? " after \(task.attempts) attempts" : "") + ">"
+            } else if task.attempts > 1 {
+                errorOutput = " <recovered after \(task.attempts) attempts>"
+            }
+            let output = timestamp + " " + numOfTasks + " " + status + " " + String(cc.cacheable) + " " + String(cc.maxAge) + " " + time + " " + String(task.url.absoluteString) + keywordsOutput + errorOutput
             
             print(output);
         }

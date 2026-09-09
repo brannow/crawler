@@ -29,11 +29,23 @@ class OutputGenerator {
         let cc: CacheControl = CacheControl(headers: task.header);
         let keywords = task.matchedKeywords.joined(separator: ",")
         
-        return String(pool.getId(forTask: task)) + " " + pids.joined(separator: ",") + " " + String(task.code) + " " + String(cc.cacheable) + " " + String(cc.maxAge) + " " + String(task.requestTime) + " " + task.url.absoluteString + " " + keywords
+        // Keywords may be empty, so every column after it needs a placeholder --
+        // otherwise the field count varies per row and the output stops being
+        // parseable by column index.
+        let keywordsField = keywords.isEmpty ? "-" : keywords
+        let errorField = task.transportError ?? "-"
+        // The seed URL has no parents, so this field was EMPTY for it and every
+        // column after shifted left by one -- the row could not be read by index.
+        let parentField = pids.isEmpty ? "-" : pids.joined(separator: ",")
+
+        return String(pool.getId(forTask: task)) + " " + parentField + " " + String(task.code) + " " + String(cc.cacheable) + " " + String(cc.maxAge) + " " + String(task.requestTime) + " " + task.url.absoluteString + " " + keywordsField + " " + String(task.attempts) + " " + errorField
     }
     
     private static func generateOutputLineHeader() -> String
     {
-        return "ID Parent_Ids HTTP_CODE cacheable maxAge Request_Time_MS URL Keywords"
+        // HTTP_CODE is now ONLY ever a status a server actually sent. A transport
+        // failure (refused, TLS handshake, timeout) leaves it 0 and names the
+        // cause in Error -- it is no longer reported as a fabricated 500.
+        return "ID Parent_Ids HTTP_CODE cacheable maxAge Request_Time_MS URL Keywords Attempts Error"
     }
 }

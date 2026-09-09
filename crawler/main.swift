@@ -16,7 +16,8 @@ let arguments = ArgumentParser.parse(arguments: CommandLine.arguments, config: [
     OptionType(withKey: "-filter", hasValue: true),
     OptionType(withKey: "-limit", hasValue: true),
     OptionType(withKey: "-o", hasValue: true),
-    OptionType(withKey: "-keywords", hasValue: true)
+    OptionType(withKey: "-keywords", hasValue: true),
+    OptionType(withKey: "-retry", hasValue: true)
 ] )
 
 let threadCount: UInt = UInt(arguments.getOptionValue(key: "-t", defaultValue: "1").value ?? "1") ?? 1
@@ -24,6 +25,8 @@ let limit: UInt = UInt(arguments.getOptionValue(key: "-limit", defaultValue: "0"
 let filterString: String = arguments.getOptionValue(key: "-filter", defaultValue: "").value ?? ""
 let keywordsString: String = arguments.getOptionValue(key: "-keywords", defaultValue: "").value ?? ""
 let fileLocation: String = arguments.getOptionValue(key: "-o", defaultValue: "").value ?? ""
+// Total attempts per URL, including the first. 1 disables retrying.
+let retryCount: UInt = UInt(arguments.getOptionValue(key: "-retry", defaultValue: "3").value ?? "3") ?? 3
 
 let crawler = Crawler(
     withThreads: threadCount,
@@ -31,7 +34,8 @@ let crawler = Crawler(
     keywords: keywordsString,
     limit: limit,
     verbose: arguments.hasOption(key: "-v"),
-    outputFileLocation: fileLocation
+    outputFileLocation: fileLocation,
+    maxAttempts: retryCount
 )
 
 let sigintSrc = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
@@ -47,7 +51,7 @@ if (arguments.arguments.count > 0) {
     crawler.crawl(from: arguments.arguments.last!.value)
     RunLoop.main.run()
 } else {
-    print("possible call: \n./crawler -v -t 10 -filter \"/fileadmin/,tx_news,tx_t3events_events\" -keywords \"login,admin,contact\" -o ~/Desktop/list.txt https://your-domain/")
+    print("possible call: \n./crawler -v -t 10 -retry 3 -filter \"/fileadmin/,tx_news,tx_t3events_events\" -keywords \"login,admin,contact\" -o ~/Desktop/list.txt https://your-domain/")
     print("no url - exit")
 }
 
