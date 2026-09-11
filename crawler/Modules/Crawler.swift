@@ -31,7 +31,30 @@ class Crawler: NetworkLoaderDelegate
     let limit: UInt
     let maxAttempts: UInt
     var fileLocation: URL? = nil
-    
+
+    /// Routes every process-ending path instead of calling exit() directly.
+    /// Production leaves this as real exit() -- CLI behavior is unchanged.
+    /// Since crawler.swift's sources are compiled directly into the test bundle
+    /// (no separate host process), a bare exit() here would kill the whole
+    /// XCTest run, not just the current test; tests override this with a
+    /// no-op that just records the code.
+    var exitHandler: (Int32) -> Void = { code in exit(code) }
+
+    /// Guards the two warmupThreads() completion branches below. execute()
+    /// schedules a warmupThreads() call for every dispatched task regardless of
+    /// that task's own completion, so several stale calls can still be queued
+    /// up when the pool empties out; each would otherwise re-run generateOutput()
+    /// and call exitHandler(0) again. Production never noticed because the
+    /// first exit(0) killed the process before a second call was possible.
+    private var hasFinished = false
+
+    private func finish(withCode code: Int32) {
+        guard !hasFinished else { return }
+        hasFinished = true
+        generateOutput()
+        exitHandler(code)
+    }
+
     init(withThreads: UInt = 1, filter: String, keywords: String, limit: UInt = 0, verbose: Bool, outputFileLocation: String = "", maxAttempts: UInt = 3)
     {
         self.maxAttempts = maxAttempts < 1 ? 1 : maxAttempts
@@ -67,24 +90,26 @@ class Crawler: NetworkLoaderDelegate
                 try "".write(to: self.fileLocation!, atomically: true, encoding: .utf8)
             } catch {
                 print("Could not create output file at location: \(self.fileLocation!.absoluteString)")
-                exit(1)
+                exitHandler(1)
+                return
             }
         }
     }
-    
+
     func crawl(from urlString: String) -> Void
     {
         self.createEmptyOutputFile()
         guard let url = URL(string: urlString) else {
             print("invalid url: \(urlString) - exit")
-            exit(1);
+            exitHandler(1)
+            return
         }
-        if ((url.host == nil || url.scheme == nil)) {
+        guard let host = url.host, let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else {
             print("invalid url: '\(urlString)' - exit")
-            exit(1);
+            exitHandler(1)
+            return
         }
-        let scheme = url.absoluteString.starts(with: "http:") ? "http" : "https"
-        self.baseUrl = URL(string: scheme + "://" + url.host!)!
+        self.baseUrl = URL(string: scheme + "://" + host)!
         
         _ = self.pool.addNew(
             task: self.pool.createTask(withUrl: url)
@@ -111,19 +136,19 @@ class Crawler: NetworkLoaderDelegate
     func warmupThreads() -> Void {
         
         if ((self.pool.openTask.count + self.pool.processTask.count) == 0) {
-            generateOutput()
-            exit(0)
+            finish(withCode: 0)
+            return
         }
-        
+
         if (self.limit > 0) {
             let limitTaskCount = self.pool.processTask.count + self.pool.finishTask.count
             if (limitTaskCount >= self.limit) {
-                
+
                 if (self.pool.processTask.count == 0) {
-                    generateOutput()
-                    exit(0)
+                    finish(withCode: 0)
+                    return
                 }
-                
+
                 return
             }
         }

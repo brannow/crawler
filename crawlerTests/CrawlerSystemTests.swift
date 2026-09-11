@@ -8,7 +8,7 @@
 import XCTest
 import Foundation
 import Dispatch
-@testable import crawler
+import NIOHTTP1
 
 class CrawlerSystemTests: XCTestCase {
     
@@ -114,6 +114,7 @@ class CrawlerSystemTests: XCTestCase {
         let crawler1 = Crawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: ""
@@ -122,6 +123,7 @@ class CrawlerSystemTests: XCTestCase {
         let crawler5 = Crawler(
             withThreads: 5,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: ""
@@ -130,6 +132,7 @@ class CrawlerSystemTests: XCTestCase {
         let crawler10 = Crawler(
             withThreads: 10,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: ""
@@ -197,6 +200,7 @@ class CrawlerSystemTests: XCTestCase {
             let crawler = TestCrawler(
                 withThreads: threadCount,
                 filter: "",
+                keywords: "",
                 limit: 0,
                 verbose: false,
                 outputFileLocation: tempOutputFile.path
@@ -248,6 +252,7 @@ class CrawlerSystemTests: XCTestCase {
         let crawler = TestCrawler(
             withThreads: 1,
             filter: "/admin/,/fileadmin/",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: tempOutputFile.path
@@ -304,6 +309,7 @@ class CrawlerSystemTests: XCTestCase {
         let crawler = TestCrawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 3,
             verbose: false,
             outputFileLocation: tempOutputFile.path
@@ -350,6 +356,7 @@ class CrawlerSystemTests: XCTestCase {
         let crawler = TestCrawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: tempOutputFile.path
@@ -361,7 +368,7 @@ class CrawlerSystemTests: XCTestCase {
             XCTAssertTrue(FileManager.default.fileExists(atPath: self.tempOutputFile.path), "Output file should be created")
             
             do {
-                let content = try String(contentsOf: self.tempOutputFile)
+                let content = try String(contentsOf: self.tempOutputFile, encoding: .utf8)
                 XCTAssertFalse(content.isEmpty, "Output file should not be empty")
                 
                 // Check that the output contains URLs
@@ -384,30 +391,33 @@ class CrawlerSystemTests: XCTestCase {
     // MARK: - Error Handling Tests
     
     func testInvalidURLHandling() {
-        let crawler = Crawler(
-            withThreads: 1,
-            filter: "",
-            limit: 0,
-            verbose: false,
-            outputFileLocation: ""
-        )
-        
-        // Test with invalid URL - this should cause the crawler to exit
-        // We can't easily test exit() in unit tests, but we can test URL validation
+        // Exercises Crawler.crawl()'s real validation via exitHandler, rather than
+        // duplicating the validation rule inline -- a prior copy of this check
+        // drifted out of sync with Crawler.crawl() and silently stopped catching
+        // ftp:// and empty-scheme URLs.
         let invalidURLs = [
             "not-a-url",
             "ftp://example.com",
             "://invalid",
             ""
         ]
-        
+
         for invalidURL in invalidURLs {
-            let url = URL(string: invalidURL)
-            if let url = url {
-                // Check if URL has required components
-                let isValid = url.host != nil && url.scheme != nil
-                XCTAssertFalse(isValid, "URL \(invalidURL) should be considered invalid")
-            }
+            let crawler = Crawler(
+                withThreads: 1,
+                filter: "",
+                keywords: "",
+                limit: 0,
+                verbose: false,
+                outputFileLocation: ""
+            )
+
+            var rejectedWithCode: Int32? = nil
+            crawler.exitHandler = { code in rejectedWithCode = code }
+
+            crawler.crawl(from: invalidURL)
+
+            XCTAssertEqual(rejectedWithCode, 1, "URL \(invalidURL) should be considered invalid")
         }
     }
     
@@ -446,6 +456,7 @@ class CrawlerSystemTests: XCTestCase {
         let crawler = TestCrawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: true,
             outputFileLocation: tempOutputFile.path
@@ -477,14 +488,17 @@ class CrawlerSystemTests: XCTestCase {
 // Test subclass to allow completion handling
 class TestCrawler: Crawler {
     var onCompletion: (() -> Void)?
-    
-    override func warmupThreads() {
-        super.warmupThreads()
-        
-        // Check if crawling is complete
-        if pool.openTask.count == 0 && pool.processTask.count == 0 {
+
+    override init(withThreads: UInt = 1, filter: String, keywords: String, limit: UInt = 0, verbose: Bool, outputFileLocation: String = "", maxAttempts: UInt = 3) {
+        super.init(withThreads: withThreads, filter: filter, keywords: keywords, limit: limit, verbose: verbose, outputFileLocation: outputFileLocation, maxAttempts: maxAttempts)
+
+        // Crawler.exitHandler defaults to a real exit(), which would kill the
+        // whole XCTest process instead of just ending this crawl. Route it to
+        // the completion callback instead -- this fires at exactly the two
+        // points (all tasks done, or limit reached) that used to call exit(0).
+        exitHandler = { [weak self] _ in
             DispatchQueue.main.async {
-                self.onCompletion?()
+                self?.onCompletion?()
             }
         }
     }

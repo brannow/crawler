@@ -8,7 +8,7 @@
 import XCTest
 import Foundation
 import Dispatch
-@testable import crawler
+import NIOHTTP1
 
 class CrawlerEdgeCaseTests: XCTestCase {
     
@@ -48,6 +48,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = TestCrawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: tempOutputFile.path
@@ -93,6 +94,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = TestCrawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: tempOutputFile.path
@@ -134,6 +136,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = TestCrawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: tempOutputFile.path
@@ -186,6 +189,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = TestCrawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: tempOutputFile.path
@@ -235,6 +239,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = TestCrawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: tempOutputFile.path
@@ -258,6 +263,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = Crawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: ""
@@ -271,6 +277,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = Crawler(
             withThreads: 1,
             filter: "/admin/, /test/ , /debug/",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: ""
@@ -286,6 +293,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = Crawler(
             withThreads: 1,
             filter: "/admin/",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: ""
@@ -301,6 +309,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = Crawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: ""
@@ -337,6 +346,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = TestCrawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 1,
             verbose: false,
             outputFileLocation: tempOutputFile.path
@@ -361,6 +371,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = Crawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: "~/test_output.txt"
@@ -376,6 +387,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = Crawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: nonExistentPath
@@ -391,6 +403,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = Crawler(
             withThreads: 0,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: ""
@@ -403,6 +416,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = Crawler(
             withThreads: 1000,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: ""
@@ -442,6 +456,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = TestCrawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: true,
             outputFileLocation: tempOutputFile.path
@@ -493,6 +508,7 @@ class CrawlerEdgeCaseTests: XCTestCase {
         let crawler = TestCrawler(
             withThreads: 1,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: tempOutputFile.path

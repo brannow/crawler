@@ -8,7 +8,6 @@
 import XCTest
 import Foundation
 import Dispatch
-@testable import crawler
 
 class CrawlerPerformanceTests: XCTestCase {
     
@@ -83,6 +82,7 @@ class CrawlerPerformanceTests: XCTestCase {
             let crawler = TestCrawler(
                 withThreads: UInt(threadCount),
                 filter: "",
+                keywords: "",
                 limit: 0,
                 verbose: false,
                 outputFileLocation: tempOutputFile.path
@@ -158,6 +158,7 @@ class CrawlerPerformanceTests: XCTestCase {
         let crawler = TestCrawler(
             withThreads: 20, // High thread count
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: tempOutputFile.path
@@ -300,6 +301,7 @@ class CrawlerPerformanceTests: XCTestCase {
         let crawler = TestCrawler(
             withThreads: 8,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: true,
             outputFileLocation: tempOutputFile.path
@@ -315,7 +317,7 @@ class CrawlerPerformanceTests: XCTestCase {
             XCTAssertTrue(FileManager.default.fileExists(atPath: self.tempOutputFile.path), "Output file should exist")
             
             do {
-                let content = try String(contentsOf: self.tempOutputFile)
+                let content = try String(contentsOf: self.tempOutputFile, encoding: .utf8)
                 XCTAssertFalse(content.isEmpty, "Output should not be empty")
                 XCTAssertTrue(content.contains(baseURL), "Output should contain base URL")
             } catch {
@@ -364,6 +366,7 @@ class CrawlerPerformanceTests: XCTestCase {
         let crawler = TestCrawler(
             withThreads: 15,
             filter: "",
+            keywords: "",
             limit: 0,
             verbose: false,
             outputFileLocation: tempOutputFile.path
