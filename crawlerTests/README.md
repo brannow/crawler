@@ -1,5 +1,7 @@
 # Crawler Test Suite
 
+> **Status: wired up and running.** `crawlerTests` is a real Unit Testing Bundle target; `xcodebuild test` and `./run_tests.sh` both work. 32/34 tests pass — the 2 known failures (`CrawlerSystemTests.testInvalidURLHandling`) are a real gap in `Crawler.crawl()`'s URL validation, not a broken test. See the root CLAUDE.md's Testing section for the exact mechanism and for two production bugs (`exitHandler`, `hasFinished`) that had to be fixed in `Crawler.swift` to make this suite safely runnable in-process.
+
 This directory contains comprehensive system tests for the crawler application. The tests are designed to validate the entire system functionality including network requests, threading, argument parsing, and output generation.
 
 ## Test Coverage
