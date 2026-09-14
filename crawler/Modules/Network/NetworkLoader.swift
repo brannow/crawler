@@ -6,9 +6,9 @@
 //
 
 import Foundation
-import SwiftyRequest
 import AsyncHTTPClient
 import NIOHTTP1
+import NIOSSL
 import NIO
 
 class NetworkLoader
@@ -22,11 +22,38 @@ class NetworkLoader
     // Shared EventLoopGroup for all network operations - use system core count or default to 4
     private static let sharedEventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: ProcessInfo.processInfo.processorCount > 0 ? ProcessInfo.processInfo.processorCount : 4)
 
-    /// Without these SwiftyRequest passes `timeout: nil`, which async-http-client
-    /// reads as "wait forever". A crawler must never park a slot on a dead peer.
+    /// Without these async-http-client reads "no timeout" and a crawl could park
+    /// a thread slot on a dead peer indefinitely.
     private static let timeouts = HTTPClient.Configuration.Timeout(
         connect: .seconds(10),
         read: .seconds(30)
+    )
+
+    /// One long-lived HTTPClient for the whole process, talking to
+    /// AsyncHTTPClient directly instead of through SwiftyRequest's RestRequest.
+    ///
+    /// Two reasons this is no longer a RestRequest:
+    /// 1. `redirectConfiguration: .disallow`, on purpose. RestRequest builds its
+    ///    own HTTPClient internally with no way to override redirect handling,
+    ///    so a 3xx was always followed silently -- the crawler never saw the
+    ///    redirect, never recorded it, and never queued its target as its own
+    ///    discovered URL. That made redirect chains invisible to exactly the
+    ///    migration/link-rot audits this tool exists for (see README). Now a
+    ///    3xx is a terminal, recorded result and its Location header is queued
+    ///    like any other discovered link -- see attempt(task:attempt:) below.
+    /// 2. It sidesteps the old per-request RestRequest lifetime hazard
+    ///    entirely (formerly documented here in detail: a fresh HTTPClient
+    ///    constructed per request, torn down by a blocking syncShutdown() in
+    ///    its deinit, racing the very request it was still serving). A single
+    ///    shared client created once has nothing to race -- it lives until the
+    ///    process exits, and exit() doesn't run Swift deinitializers anyway.
+    private static let sharedHTTPClient = HTTPClient(
+        eventLoopGroupProvider: .shared(NetworkLoader.sharedEventLoopGroup),
+        configuration: HTTPClient.Configuration(
+            certificateVerification: .none,
+            redirectConfiguration: .disallow,
+            timeout: NetworkLoader.timeouts
+        )
     )
 
     deinit {
@@ -45,61 +72,56 @@ class NetworkLoader
         self.attempt(task: crawlerTask, attempt: 1)
     }
 
-    /// One HTTP attempt.
-    ///
-    /// THE LIFETIME RULE THIS METHOD EXISTS TO ENFORCE -- read before editing.
-    /// `RestRequest` owns its own `HTTPClient` (SwiftyRequest RestRequest.swift:401)
-    /// and tears it down in `deinit` via a BLOCKING `syncShutdown()`. Neither
-    /// `responseString` nor the `whenComplete` closure beneath it captures the
-    /// RestRequest, so while it was only a local `let` here it was deallocated the
-    /// instant this method returned -- shutting down the HTTP client while its own
-    /// request was still in flight. The request then failed with `.cancelled` /
-    /// `.alreadyShutdown` and no HTTP response, which the old code reported as a
-    /// fabricated 500. At -t 1 the response usually won that race; at -t 10 it did
-    /// not, which is precisely why the failures looked like a server-side
-    /// concurrency bug and sent us auditing the server instead of this file.
-    ///
-    /// So: the closure holds the request strongly via its capture list, and the
-    /// LAST reference is dropped on a Dispatch global queue -- never on a NIO
-    /// event-loop thread (a blocking syncShutdown there deadlocks) and never on
-    /// main (it would stall the queue that drives the crawl loop).
+    /// One HTTP attempt, redirects included as a terminal result rather than
+    /// something AsyncHTTPClient resolves on our behalf.
     private func attempt(task crawlerTask: CrawlerTask, attempt: UInt) -> Void
     {
-        let request = RestRequest(
-            method: HTTPMethod.get,
-            url: crawlerTask.url.absoluteString,
-            insecure: true,
-            timeout: NetworkLoader.timeouts,
-            eventLoopGroup: NetworkLoader.sharedEventLoopGroup
-        )
-        request.headerParameters.removeAll()
-        request.acceptType = "*/*"
-        request.productInfo = "BR-Crawler: 1.0 / site-crawler"
-        request.contentType = nil
+        var headers = HTTPHeaders()
+        headers.add(name: "Accept", value: "*/*")
+        headers.add(name: "User-Agent", value: "BR-Crawler: 1.0 / site-crawler")
+
+        guard let request = try? HTTPClient.Request(url: crawlerTask.url.absoluteString, method: .GET, headers: headers) else {
+            self.complete(task: crawlerTask, html: "", headers: HTTPHeaders(), code: 0, requestTimeMS: 0, attempts: attempt, transportError: "invalidURL")
+            return
+        }
+
         let start = DispatchTime.now()
 
-        request.responseString { [request] result in
+        NetworkLoader.sharedHTTPClient.execute(request: request).whenComplete { result in
 
             let nanoTime = DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds
             let timeInterval = Double(nanoTime) / 1_000_000
 
             switch result {
             case .success(let response):
-                self.dispose(request)
-                self.complete(task: crawlerTask, html: response.body, headers: response.headers, code: response.status.code, requestTimeMS: timeInterval, attempts: attempt)
+                // Every real HTTP response (2xx through 5xx) lands here --
+                // unlike SwiftyRequest, AsyncHTTPClient doesn't artificially
+                // fail the future for a non-2xx status. `.failure` below is
+                // reserved for genuine transport failures.
+                let bytes = response.body?.readableBytes ?? 0
 
-            case .failure(let error):
-                // The server DID answer, it just answered with an error status.
-                // That is a real result: report it and never retry it.
-                if let response = error.response {
-                    self.dispose(request)
-                    self.complete(task: crawlerTask, html: "", headers: response.headers, code: response.status.code, requestTimeMS: timeInterval, attempts: attempt)
-                    return
+                switch response.status.code {
+                case 200..<300:
+                    let html = NetworkLoader.decodeBody(response.body, headers: response.headers)
+                    self.complete(task: crawlerTask, html: html, headers: response.headers, code: response.status.code, requestTimeMS: timeInterval, attempts: attempt, bytes: bytes)
+
+                case 300..<400:
+                    // A real answer, never retried -- but there's no page here
+                    // to scan for links, just a Location to treat as the one
+                    // URL this page discovered (dropped if it points off-host,
+                    // same as any other cross-host link).
+                    let discovered = self.discoverRedirectTarget(from: response.headers, task: crawlerTask)
+                    self.complete(task: crawlerTask, html: "", headers: response.headers, code: response.status.code, requestTimeMS: timeInterval, attempts: attempt, bytes: bytes, discoveredUrls: discovered)
+
+                default:
+                    // 4xx/5xx: a real answer, never retried. The error page's
+                    // own links were never crawled before this change either.
+                    self.complete(task: crawlerTask, html: "", headers: response.headers, code: response.status.code, requestTimeMS: timeInterval, attempts: attempt, bytes: bytes, discoveredUrls: [])
                 }
 
+            case .failure(let error):
                 // No HTTP response at all -- transport level.
                 let reason = NetworkLoader.describe(error)
-                self.dispose(request)
 
                 if attempt < self.maxAttempts && NetworkLoader.isRetryable(error) {
                     // Exponential backoff with jitter, scheduled off the event loop.
@@ -115,14 +137,23 @@ class NetworkLoader
         }
     }
 
-    /// Hand the last reference to a Dispatch worker so `RestRequest.deinit` ->
-    /// `HTTPClient.syncShutdown()` runs somewhere it is allowed to block.
-    /// Dispatch global queues never run on NIO's event-loop threads.
-    private func dispose(_ request: RestRequest) -> Void
-    {
-        DispatchQueue.global(qos: .utility).async {
-            withExtendedLifetime(request) { }
+    /// Resolves a redirect's `Location` header into the one URL this response
+    /// discovered. `Location` may be relative (rare in practice, still legal),
+    /// so this does real RFC 3986 resolution against the request URL rather
+    /// than HTMLLinkParser's limited absolute-or-root-relative string match --
+    /// that shortcut is acceptable for editorial `<a href>` content but not
+    /// appropriate here. Off-host targets are dropped, same as any other
+    /// cross-host link the crawler encounters.
+    private func discoverRedirectTarget(from headers: HTTPHeaders, task: CrawlerTask) -> Set<String> {
+        guard let location = headers["Location"].first,
+              let resolved = URL(string: location, relativeTo: task.url)?.absoluteURL,
+              let baseUrl = self.delegate?.getBaseUrl(loader: self, task: task),
+              resolved.host == baseUrl.host
+        else {
+            return []
         }
+
+        return [resolved.absoluteString]
     }
 
     /// Retry only what a retry can plausibly fix. A refused connection or a broken
@@ -186,22 +217,45 @@ class NetworkLoader
 
     private static func underlyingClientError(_ error: Error) -> HTTPClientError?
     {
-        if let clientError = error as? HTTPClientError {
-            return clientError
-        }
-        // RestError is a struct with a PRIVATE internal case enum, so it cannot be
-        // pattern matched; it exposes the underlying transport failure as `.error`.
-        if let restError = error as? RestError,
-           let nested = restError.error as? HTTPClientError {
-            return nested
-        }
-        return nil
+        return error as? HTTPClientError
     }
 
-    func complete(task: CrawlerTask, html: String, headers: HTTPHeaders, code: UInt, requestTimeMS: Double, attempts: UInt = 1, transportError: String? = nil) -> Void
+    /// Decodes a response body using the charset from its Content-Type header
+    /// (defaulting to UTF-8, with an ISO-8859-1 special case -- the same rule
+    /// SwiftyRequest applied). Falls back to a lossy UTF-8 decode rather than
+    /// dropping the body entirely on a decode failure, so a charset mismatch
+    /// no longer silently zeroes out link/keyword discovery for that page.
+    private static func decodeBody(_ body: ByteBuffer?, headers: HTTPHeaders) -> String {
+        guard let body = body, let bytes = body.getBytes(at: 0, length: body.readableBytes) else {
+            return ""
+        }
+
+        let encoding = NetworkLoader.characterEncoding(from: headers["content-type"].first)
+        return String(bytes: bytes, encoding: encoding) ?? String(decoding: bytes, as: UTF8.self)
+    }
+
+    private static func characterEncoding(from contentType: String?) -> String.Encoding {
+        guard let text = contentType,
+              let regex = try? NSRegularExpression(pattern: "(?<=charset=).*?(?=$|;|\\s)", options: [.caseInsensitive]),
+              let match = regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).last,
+              let range = Range(match.range, in: text) else {
+            return .utf8
+        }
+
+        let charset = String(text[range]).trimmingCharacters(in: CharacterSet(charactersIn: "\"").union(.whitespaces))
+        switch charset.lowercased() {
+        case "iso-8859-1": return .isoLatin1
+        default: return .utf8
+        }
+    }
+
+    func complete(task: CrawlerTask, html: String, headers: HTTPHeaders, code: UInt, requestTimeMS: Double, attempts: UInt = 1, transportError: String? = nil, bytes: Int = 0, discoveredUrls: Set<String>? = nil) -> Void
     {
         if (self.delegate != nil) {
-            let newUrls = HTMLLinkParser.parse(html: html, baseUrl: (self.delegate?.getBaseUrl(loader: self, task: task))!)
+            // discoveredUrls is only ever passed explicitly for a redirect
+            // (see attempt(task:attempt:)); everything else discovers links by
+            // parsing html as before.
+            let newUrls = discoveredUrls ?? HTMLLinkParser.parse(html: html, baseUrl: (self.delegate?.getBaseUrl(loader: self, task: task))!)
             DispatchQueue.main.async {
 
                 task.code = code
@@ -209,6 +263,7 @@ class NetworkLoader
                 task.requestTime = requestTimeMS
                 task.attempts = attempts
                 task.transportError = transportError
+                task.bytes = bytes
 
                 // No need to shutdown shared EventLoopGroup
                 self.delegate!.complete(loader: self, task: task, urls: newUrls, html: html)

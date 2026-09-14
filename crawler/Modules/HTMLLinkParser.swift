@@ -12,15 +12,6 @@ extension String {
         guard let range = Range(nsrange, in: self) else { return nil }
         return self[range]
     }
-    
-    func encodeUrl() -> String?
-    {
-        return self.addingPercentEncoding( withAllowedCharacters: NSCharacterSet.urlQueryAllowed)
-    }
-    func decodeUrl() -> String?
-    {
-        return self.removingPercentEncoding
-    }
 }
 
 class HTMLLinkParser
@@ -41,7 +32,15 @@ class HTMLLinkParser
                     guard !NSEqualRanges(nsRange, NSMakeRange(NSNotFound, 0)) else { continue }
                     let substr = html.substring(with: nsRange)
                     var link = String(substr ?? "")
-                    link = link.replacingOccurrences(of: "&amp;", with: "&").decodeUrl() ?? link
+                    // Only undo HTML-entity escaping. Percent-decoding the whole
+                    // href (as this used to do via decodeUrl()) mangles reserved
+                    // characters inside already-encoded query values -- e.g. a
+                    // literal "+" in a station name like "S+U Warschauer Straße"
+                    // is correctly sent by the server as "%2B", but decoding it
+                    // to a bare "+" changes the value TYPO3's cHash was computed
+                    // over. cHash validation then fails and the real page 404s.
+                    // The href must round-trip byte-for-byte back onto the wire.
+                    link = link.replacingOccurrences(of: "&amp;", with: "&")
                     
                     // remove unused requets stuff like /link/awd/ad#asdadw
                     if (link.contains("#")) {

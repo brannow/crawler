@@ -469,8 +469,10 @@ class CrawlerEdgeCaseTests: XCTestCase {
             XCTAssertNotNil(task.header, "Task should have headers")
             
             let cacheControl = CacheControl(headers: task.header)
-            XCTAssertTrue(cacheControl.cacheable, "Should be cacheable")
+            XCTAssertEqual(cacheControl.raw, "max-age=3600,_public", "Should carry the raw Cache-Control header, sanitized for the space-separated report")
+            XCTAssertEqual(cacheControl.expires, "Wed,_21_Oct_2025_07:28:00_GMT", "Should carry the raw Expires header, sanitized for the space-separated report")
             XCTAssertEqual(cacheControl.maxAge, 3600, "Should have correct max-age")
+            XCTAssertGreaterThan(task.bytes, 0, "Should record the received body byte count")
             
             expectation.fulfill()
         }
@@ -478,10 +480,138 @@ class CrawlerEdgeCaseTests: XCTestCase {
         DispatchQueue.global(qos: .background).async {
             crawler.crawl(from: baseURL)
         }
-        
+
         wait(for: [expectation], timeout: 10.0)
     }
-    
+
+    // MARK: - Redirect Tests
+
+    func testRedirectIsRecordedAndTargetIsDiscovered() {
+        let port = mockServer.start()
+        XCTAssertTrue(port > 0, "Mock server should start successfully")
+
+        let baseURL = mockServer.getURL()
+
+        mockServer.setResponse(for: "/", response: MockHTTPServer.MockResponse(
+            statusCode: .ok,
+            body: """
+            <!DOCTYPE html>
+            <html>
+            <body>
+                <a href="\(baseURL)/old-page">Old page</a>
+            </body>
+            </html>
+            """
+        ))
+
+        var redirectHeaders = HTTPHeaders()
+        redirectHeaders.add(name: "Location", value: "\(baseURL)/new-page")
+        mockServer.setResponse(for: "/old-page", response: MockHTTPServer.MockResponse(
+            statusCode: .movedPermanently,
+            headers: redirectHeaders,
+            body: ""
+        ))
+
+        mockServer.setResponse(for: "/new-page", response: MockHTTPServer.MockResponse(
+            statusCode: .ok,
+            body: "<html><body>New page</body></html>"
+        ))
+
+        let expectation = XCTestExpectation(description: "Redirect recorded, target discovered")
+
+        let crawler = TestCrawler(
+            withThreads: 1,
+            filter: "",
+            keywords: "",
+            limit: 0,
+            verbose: false,
+            outputFileLocation: tempOutputFile.path
+        )
+
+        crawler.onCompletion = {
+            let tasks = Array(crawler.pool.finishTask.values)
+
+            guard let redirectTask = tasks.first(where: { $0.url.absoluteString == "\(baseURL)/old-page" }) else {
+                XCTFail("Redirecting URL should have been fetched and recorded")
+                expectation.fulfill()
+                return
+            }
+            XCTAssertEqual(redirectTask.code, 301, "The redirect itself should be a real, recorded result -- not silently followed")
+            XCTAssertEqual(redirectTask.attempts, 1, "A 3xx is a real answer and must never be retried")
+
+            guard let targetTask = tasks.first(where: { $0.url.absoluteString == "\(baseURL)/new-page" }) else {
+                XCTFail("Redirect target should have been discovered from the Location header and crawled on its own")
+                expectation.fulfill()
+                return
+            }
+            XCTAssertEqual(targetTask.code, 200, "The redirect target should have been fetched normally")
+
+            let redirectId = crawler.pool.getId(forTask: redirectTask)
+            XCTAssertTrue(targetTask.parentId.contains(redirectId), "The redirect target's parent chain should point back at the URL that redirected to it")
+
+            expectation.fulfill()
+        }
+
+        DispatchQueue.global(qos: .background).async {
+            crawler.crawl(from: baseURL)
+        }
+
+        wait(for: [expectation], timeout: 10.0)
+    }
+
+    func testRelativeRedirectLocationIsResolved() {
+        let port = mockServer.start()
+        XCTAssertTrue(port > 0, "Mock server should start successfully")
+
+        let baseURL = mockServer.getURL()
+
+        mockServer.setResponse(for: "/", response: MockHTTPServer.MockResponse(
+            statusCode: .ok,
+            body: "<html><body><a href=\"\(baseURL)/relative-redirect\">Link</a></body></html>"
+        ))
+
+        // A relative Location (just a path, no scheme/host) is legal per RFC 7231
+        // and must resolve against the request URL, not be treated as a literal string.
+        var redirectHeaders = HTTPHeaders()
+        redirectHeaders.add(name: "Location", value: "/relative-target")
+        mockServer.setResponse(for: "/relative-redirect", response: MockHTTPServer.MockResponse(
+            statusCode: .found,
+            headers: redirectHeaders,
+            body: ""
+        ))
+
+        mockServer.setResponse(for: "/relative-target", response: MockHTTPServer.MockResponse(
+            statusCode: .ok,
+            body: "<html><body>Target</body></html>"
+        ))
+
+        let expectation = XCTestExpectation(description: "Relative redirect target resolved")
+
+        let crawler = TestCrawler(
+            withThreads: 1,
+            filter: "",
+            keywords: "",
+            limit: 0,
+            verbose: false,
+            outputFileLocation: tempOutputFile.path
+        )
+
+        crawler.onCompletion = {
+            let tasks = Array(crawler.pool.finishTask.values)
+            let targetTask = tasks.first(where: { $0.url.absoluteString == "\(baseURL)/relative-target" })
+            XCTAssertNotNil(targetTask, "A relative Location header should resolve to an absolute URL and be crawled")
+            XCTAssertEqual(targetTask?.code, 200)
+
+            expectation.fulfill()
+        }
+
+        DispatchQueue.global(qos: .background).async {
+            crawler.crawl(from: baseURL)
+        }
+
+        wait(for: [expectation], timeout: 10.0)
+    }
+
     // MARK: - Network Timeout and Error Simulation
     
     func testSlowServerResponse() {

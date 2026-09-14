@@ -29,6 +29,12 @@ class CrawlerTask {
 
     /// How many attempts it took. 1 means it succeeded first try.
     var attempts: UInt = 0
+
+    /// Bytes in the response body -- the exact wire byte count for any real
+    /// HTTP response (2xx through 5xx), read directly off the raw ByteBuffer
+    /// before any string decoding happens. 0 for transport failures, which
+    /// correctly means "nothing was received."
+    var bytes: Int = 0
     
     init (url: URL) {
         self.url = url

@@ -271,7 +271,11 @@ class Crawler: NetworkLoaderDelegate
             } else if task.attempts > 1 {
                 errorOutput = " <recovered after \(task.attempts) attempts>"
             }
-            let output = timestamp + " " + numOfTasks + " " + status + " " + String(cc.cacheable) + " " + String(cc.maxAge) + " " + time + " " + String(task.url.absoluteString) + keywordsOutput + errorOutput
+            // Console output isn't a positional format (variable-width timestamp,
+            // optional trailing tags already), so fields are ordered for
+            // readability -- unlike the report file, there's no compatibility
+            // reason to keep this order fixed.
+            let output = timestamp + " " + numOfTasks + " " + status + " " + cc.raw + " " + String(cc.maxAge) + " " + cc.expires + " " + String(task.bytes) + "b " + time + " " + String(task.url.absoluteString) + keywordsOutput + errorOutput
             
             print(output);
         }

@@ -38,14 +38,17 @@ class OutputGenerator {
         // column after shifted left by one -- the row could not be read by index.
         let parentField = pids.isEmpty ? "-" : pids.joined(separator: ",")
 
-        return String(pool.getId(forTask: task)) + " " + parentField + " " + String(task.code) + " " + String(cc.cacheable) + " " + String(cc.maxAge) + " " + String(task.requestTime) + " " + task.url.absoluteString + " " + keywordsField + " " + String(task.attempts) + " " + errorField
+        // New columns (Expires, Bytes) are APPENDED, not inserted, so every
+        // pre-existing column keeps its position -- a script written against
+        // the old format (e.g. `awk '{print $7}'` for URL) still works.
+        return String(pool.getId(forTask: task)) + " " + parentField + " " + String(task.code) + " " + cc.raw + " " + String(cc.maxAge) + " " + String(task.requestTime) + " " + task.url.absoluteString + " " + keywordsField + " " + String(task.attempts) + " " + errorField + " " + cc.expires + " " + String(task.bytes)
     }
-    
+
     private static func generateOutputLineHeader() -> String
     {
         // HTTP_CODE is now ONLY ever a status a server actually sent. A transport
         // failure (refused, TLS handshake, timeout) leaves it 0 and names the
         // cause in Error -- it is no longer reported as a fabricated 500.
-        return "ID Parent_Ids HTTP_CODE cacheable maxAge Request_Time_MS URL Keywords Attempts Error"
+        return "ID Parent_Ids HTTP_CODE Cache_Control Max_Age Request_Time_MS URL Keywords Attempts Error Expires Bytes"
     }
 }
