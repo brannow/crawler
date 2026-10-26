@@ -18,7 +18,7 @@ Single target: `crawler`, a `com.apple.product-type.tool` command-line binary. S
 
 ## Testing
 
-`crawlerTests` is a real Unit Testing Bundle target (`xcodebuild test -project crawler.xcodeproj -scheme crawler -destination 'platform=macOS'`). 32/34 tests pass. The 2 known failures (`CrawlerSystemTests.testInvalidURLHandling`) are a real product gap, not a broken test: `Crawler.crawl()`'s validation (`host == nil || scheme == nil`) accepts `ftp://example.com` (has both, just not http/https) and `://invalid` (Swift's URL parser gives it `scheme = Optional("")` — empty, not nil). Needs a decision on whether to tighten validation or relax the test.
+`crawlerTests` is a real Unit Testing Bundle target (`xcodebuild test -project crawler.xcodeproj -scheme crawler -destination 'platform=macOS'`). All tests pass. (`CrawlerSystemTests.testInvalidURLHandling` used to fail — `Crawler.crawl()` accepted `ftp://` and `://invalid`; validation was since tightened to require an `http`/`https` scheme and a host.)
 
 **Important: `crawlerTests` compiles `crawler/Modules/**/*.swift` directly into the test bundle** (multi-target membership, set in the project's target membership settings) — it does **not** use `@testable import crawler` or a `TEST_HOST`. Testing this command-line tool via `TEST_HOST`/`BUNDLE_LOADER` (the standard pattern for testing an app-hosted framework) hits a hard `xcodebuild`/XCBuild validation failure ("Could not find test host") with zero build tasks ever executed — confirmed via xcresult analysis, not just circumstantial. Don't reintroduce that pattern; `main.swift` is deliberately excluded from the test target's membership (its top-level code would run inside the test process otherwise).
 
@@ -39,6 +39,9 @@ Single target: `crawler`, a `com.apple.product-type.tool` command-line binary. S
 | `Modules/Network/NetworkLoader.swift` | HTTP fetch directly via AsyncHTTPClient (redirects disallowed, `Location` handled as a discovered link), retry with backoff, error classification |
 | `Modules/Helper/CommandArgumentParser.swift`, `CommandArgumentResult.swift` | CLI flag parsing |
 | `Modules/OutputGenerator.swift` | Report file rendering (see README's column table) |
+| `Modules/Visualizer/Visualizer.swift` | `crawler visual`: embeds a report into the HTML template, writes `<dir>/<report>.html` |
+| `Modules/Visualizer/VisualizerTemplate.swift` | The whole viewer page (HTML/CSS/JS) as one Swift raw string |
+| `Modules/Visualizer/D3Hierarchy.swift` | Vendored, unmodified `d3-hierarchy` v3.1.2 (ISC) as a raw string — layout maths only |
 
 ### Dependencies
 
@@ -68,6 +71,22 @@ Only `SwiftyRequest` (`upToNextMajor(3.2.200)`) is a declared package dependency
 
 **Timeouts are set explicitly because the library default is "forever."** `HTTPClient.Configuration.Timeout()` defaults to no timeout at all unless given one. `NetworkLoader.timeouts` (connect 10s / read 30s) is passed into `NetworkLoader.sharedHTTPClient`'s configuration to stop a crawl from parking a thread slot on a dead peer indefinitely.
 
+## Visualizer (`crawler visual`)
+
+**The page parses the report, Swift doesn't.** `Visualizer.render()` only drops the raw report text into the template as a JS string literal; the JS in `VisualizerTemplate.swift` is the one and only reader of the format. It locates columns **by header name**, so appending a report column is harmless, but **renaming or removing one breaks the visualizer** — grep the template for the column name before touching `OutputGenerator.generateOutputLineHeader()`. It also re-joins surplus tokens into `Error` if a row has too many fields — `OutputGenerator.field()` now escapes whitespace in `Error` and `Keywords` (`NetworkLoader.describe()`'s `httpClient(...)` fallback could contain spaces), but reports written before that fix still exist.
+
+**Older report formats load, but degrade honestly.** The report header changed five times (see `git log -- crawler/Modules/OutputGenerator.swift`). `parseReport()` records which columns exist (`caps`); a missing column must never be read as "header absent" or "not fetched". Without `Cache_Control` the hatch is off, without `Attempts` code 0 gets its own "not fetched or no response" bucket, and the page shows a banner naming the missing columns. Keep that rule for any new column-dependent feature.
+
+**One self-contained file, on purpose.** No CDN, no asset folder, no build phase: the viewer is a raw string (`#"""…"""#`, closing delimiter at column 0) and `d3-hierarchy` is vendored the same way. The rest of d3 (selection/transition) was deliberately replaced by plain DOM so only ~15 KB has to be embedded. Edit the JS directly in the raw string; it must never contain `"""#` (ends the string) or `\#` (interpolation). The trade-off accepted for zero build infrastructure: no JS syntax highlighting in Xcode, and every JS change needs a rebuild + `crawler visual …` to see it.
+
+**Five placeholders, each exactly once** (`Visualizer.placeholders`; `VisualizerTests` enforces it), filled in **one pass over the template** — positions are located in the template and slices concatenated, so inserted report data is never scanned again. Don't go back to sequential `replace` calls: with two embedded reports (current + `-compare` baseline), placeholder-looking text inside the first report's URLs would get expanded. Data goes in as a JSON literal with `<` (and U+2028/2029) escaped so `</script>` in the data can't end the script early. Don't switch back to `<script type="text/plain">` embedding — that has no escape mechanism at all.
+
+**`Visualizer` throws, never `exit()`s** — same reason as `Crawler.exitHandler`: it compiles into the test bundle. `main.swift`'s `runVisual` maps errors to stderr + exit 1, and is dispatched **before** any crawl setup, because the crawl path takes the *last* positional argument as the seed URL.
+
+**Diff (`-compare` / *Compare with…*) matches URLs by path + query — never by ID, never by host.** IDs restart at 0 in every crawl and are assigned in hash order, and v13/v14 run on different hosts. TYPO3's `cHash` depends on the instance's `encryptionKey`, so the same page has a different cHash on another instance (measured: 0 of the cHash URLs matched between the v13 and v14 crawls) — *Ignore cHash* (default on) drops that parameter from the key. Rows that collide on a key stay unmatched and are counted, never merged. Inside the page, node identity is the node object or its side-qualified key (`c:42` / `b:42`); a node's parent/child IDs resolve only in its own report (`n.pool`). Categories compare **classes**, not raw values — TYPO3's `max-age` is a countdown, so the raw string differs between any two crawls. Baseline-only URLs join the tree **only in Diff mode**, so every other mode still matches the current report's totals. Sanity check that worked: diff two crawls of the same version — it should show ~0 status changes (it found the press-gallery route-enhancer change and nothing else).
+
+**Cacheability in the viewer is read from the raw headers only** (same limit as `CacheControl`): `no-store` / `private|no-cache|max-age=0` / neither header. It says what a cache *may* do, not whether TYPO3 actually served from its page cache.
+
 ## Threading model
 
 Two independent concurrency layers:
@@ -78,5 +97,6 @@ Two independent concurrency layers:
 
 - Manually managed Xcode project (no SPM package manifest at the project root — dependencies are XCRemoteSwiftPackageReference entries in project.pbxproj).
 - Hardened runtime enabled.
+- `visual` is the only subcommand. `ArgumentParser` has no subcommand concept — `main.swift` checks whether the first positional argument is `visual`. Its `-o` means an output *directory*, unlike the crawl's `-o <file>`; `-compare <file>` only exists for `visual`. Quirk: `ArgumentParser` drops positional arguments equal to any option value, so `visual a.txt -compare a.txt` loses the report path.
 - When adding a CLI option, update all four: `main.swift`'s `ArgumentParser` config, `main.swift`'s `printHelp()`, `Crawler.init`, and the options table in README.md. `printHelp()` and the README table are independent copies of the same information — touching only one leaves the other stale.
 - When adding an output column, update `OutputGenerator.generateOutputLineHeader()` and `generateOutputLine(forTask:inPool:)` together, keep the `-` placeholder convention, and update README.md's column table.

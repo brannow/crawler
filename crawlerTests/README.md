@@ -1,6 +1,6 @@
 # Crawler Test Suite
 
-> **Status: wired up and running.** `crawlerTests` is a real Unit Testing Bundle target; `xcodebuild test` and `./run_tests.sh` both work. 32/34 tests pass — the 2 known failures (`CrawlerSystemTests.testInvalidURLHandling`) are a real gap in `Crawler.crawl()`'s URL validation, not a broken test. See the root CLAUDE.md's Testing section for the exact mechanism and for two production bugs (`exitHandler`, `hasFinished`) that had to be fixed in `Crawler.swift` to make this suite safely runnable in-process.
+> **Status: wired up and running.** `crawlerTests` is a real Unit Testing Bundle target; `xcodebuild test` and `./run_tests.sh` both work. All tests pass. See the root CLAUDE.md's Testing section for two production bugs (`exitHandler`, `hasFinished`) that had to be fixed in `Crawler.swift` to make this suite safely runnable in-process.
 
 This directory contains comprehensive system tests for the crawler application. The tests are designed to validate the entire system functionality including network requests, threading, argument parsing, and output generation.
 
@@ -41,7 +41,19 @@ This directory contains comprehensive system tests for the crawler application. 
 - Cache control header processing
 - Network timeout and error simulation
 
-### 4. MockHTTPServer.swift
+### 4. VisualizerTests.swift
+**`crawler visual` output:**
+- Each template placeholder occurs exactly once and is filled
+- The embedded report round-trips byte-for-byte, including `</script>`, U+2028/2029 and non-ASCII
+- No external resources (`<script src`, `<link`)
+- Output directory creation, file named after the report; missing/empty report errors
+- `-compare` baseline embedding (round-trip, `null` without one), single-pass placeholder fill
+
+### 5. OutputGeneratorTests.swift
+**Report file format:**
+- Free-text fields (`Error`, `Keywords`) never shift columns: every row has the header's field count
+
+### 6. MockHTTPServer.swift
 **Test infrastructure:**
 - Mock HTTP server for simulating network requests
 - Configurable responses with custom status codes and headers

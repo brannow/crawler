@@ -71,7 +71,7 @@ ID Parent_Ids HTTP_CODE Cache_Control Max_Age Request_Time_MS URL Keywords Attem
 ```
 
 - **ID**: sequential, stable for a given URL across the whole run.
-- **Parent_Ids**: comma-separated IDs of pages this URL was linked from, or `-` for the seed URL (no parent). A URL found from multiple pages lists all of them.
+- **Parent_Ids**: comma-separated IDs of pages this URL was linked from, or `-` if nothing linked to it. A URL found from multiple pages lists all of them. Don't use `-` to find the seed URL: on a real site nearly every page links back to the homepage, so the seed row usually has a long parent list (often including its own ID). The seed is the lowest ID (`0`).
 - **HTTP_CODE**: the status the server actually returned. `0` means the server never answered at all — check **Error** and **Attempts** to see why.
 - **Cache_Control**: the raw `Cache-Control` header value(s), or `-` if the header was absent. Deliberately raw, not a derived `cacheable` flag: per RFC 9111, no header does not mean "cacheable" (heuristic caching may still apply depending on `Expires`/`Last-Modified`/`ETag`, which this column can't tell you either — cross-check with `curl -I` for those), and a single bool can't distinguish `no-cache` (may store, must revalidate) from `no-store` (must not store). Spaces in the header value are replaced with `_` so the column stays positionally parseable.
 - **Max_Age**: the `max-age` directive's value parsed out of `Cache_Control`, or `-1` if there wasn't one (no header, or a header without `max-age`) — that includes rows with no response at all (transport failures, never-fetched URLs).
@@ -88,10 +88,33 @@ Every column is always present — `-` is the placeholder for "nothing here" —
 
 Note `-limit` counts pages *fetched or in flight*, not URLs discovered — a run can (and usually does) report far more rows than the limit, since every linked URL is recorded even if it was never crawled.
 
+## Visualizing a report (`visual`)
+
+```bash
+./crawler visual ~/Desktop/list.txt -o ~/Desktop/crawl-visual
+# -> ~/Desktop/crawl-visual/list.html
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `visual <report>` | — | Report file written by an earlier crawl's `-o`. |
+| `-compare <file>` | none | Older report to diff against, embedded into the same page (which then opens in *Diff* colour mode). |
+| `-o <dir>` | current directory | Output directory, created if missing. The page is named after the report (`list.txt` → `list.html`), never `index.html`, so `-o ./` can't overwrite an unrelated file and several reports can share one directory. |
+
+The output is **one self-contained HTML file** — report data, viewer code and the ~15 KB of vendored `d3-hierarchy` are all inlined. No CDN, no network access, works from `file://`, can be mailed around as-is. A different report can also be dropped onto an open page (or loaded via *Load report…*) without regenerating it.
+
+What it shows — a map of the site by URL path, as a zoomable **treemap** or **circle pack**:
+
+- **Size**: URLs (1 each), bytes, inbound links (distinct linking pages), or request time.
+- **Colour**: HTTP status; click depth from the seed (shortest link path — buried content like a pagination chain stands out); `max-age` bucket; or **Diff vs baseline** (with `-compare` or *Compare with…*): status changed / only in baseline / only in current / cacheability changed (dotted) / fetched in only one crawl / unchanged. URLs are matched by **path + query** — never by ID (IDs differ per crawl) and never by host (so a v13 and a v14 instance compare directly). TYPO3's `cHash` differs between instances for the same page, so it's ignored by default (*Ignore cHash*). Hover or click a URL for the baseline's status, cacheability and click depth.
+- **Hatch overlay**: crosshatch = `no-store`; `╱` = `private` / `no-cache` / `max-age=0` (not served from a shared cache); `╲` = neither `Cache-Control` nor `Expires` (heuristic caching only). It says what a cache *may* do — whether TYPO3 actually served a page from its page cache isn't in the report.
+- **Not fetched** URLs (`Attempts 0`, e.g. `-filter`ed assets) are grey and hidden by default — they are never painted as errors.
+- Click a page for its details plus *Linked from* / *Links to*; search by URL substring; pinch / two-finger scroll / drag to zoom and pan (`Fit` or `0` resets).
+
 ## Testing
 
 ```bash
 xcodebuild test -project crawler.xcodeproj -scheme crawler -destination 'platform=macOS'
 ```
 
-32/34 tests pass. The 2 known failures (`CrawlerSystemTests.testInvalidURLHandling`) reflect a real gap in `Crawler.crawl()`'s URL validation (it accepts `ftp://` URLs and a couple of malformed scheme strings), not a broken test — see CLAUDE.md for the exact mechanism. See crawlerTests/README.md for what each test file covers.
+All tests pass. See crawlerTests/README.md for what each test file covers.

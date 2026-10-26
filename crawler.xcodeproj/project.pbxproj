@@ -30,6 +30,12 @@
 		5F41B96130545697006072D4 /* CacheControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4398DD3729F7A47A007A91D8 /* CacheControl.swift */; };
 		5F41B96230545697006072D4 /* NetworkLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43C1D23828C704AC00432622 /* NetworkLoader.swift */; };
 		5F41B96330545697006072D4 /* CommandArgumentResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43C1D24328C707EB00432622 /* CommandArgumentResult.swift */; };
+		8A47E2BF2926FAFB8B92B113 /* Visualizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3B2AAB5A41E4C134E00B2B0 /* Visualizer.swift */; };
+		7B1A9F3168F1113430817680 /* Visualizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3B2AAB5A41E4C134E00B2B0 /* Visualizer.swift */; };
+		A6E3CFA4F21515649D6514D9 /* VisualizerTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E802E373ADFE7E119B0906D /* VisualizerTemplate.swift */; };
+		079FAE63B208993C703706BE /* VisualizerTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E802E373ADFE7E119B0906D /* VisualizerTemplate.swift */; };
+		2A1C398229FA34E05C64F079 /* D3Hierarchy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B1784DEEF394CE8B97AEB5E /* D3Hierarchy.swift */; };
+		7C4D3C186B75627E47B5BF63 /* D3Hierarchy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B1784DEEF394CE8B97AEB5E /* D3Hierarchy.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -75,6 +81,9 @@
 		5F18F4FF2E19433700864D3A /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		5F18F5002E19433700864D3A /* run_tests.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = run_tests.sh; sourceTree = "<group>"; };
 		5F25782F3054509900F43037 /* crawlerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = crawlerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B3B2AAB5A41E4C134E00B2B0 /* Visualizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Visualizer.swift; sourceTree = "<group>"; };
+		6E802E373ADFE7E119B0906D /* VisualizerTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualizerTemplate.swift; sourceTree = "<group>"; };
+		5B1784DEEF394CE8B97AEB5E /* D3Hierarchy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = D3Hierarchy.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -136,6 +145,7 @@
 				43C1D27228C7353500432622 /* DTO */,
 				43C1D23F28C7079B00432622 /* Helper */,
 				43C1D23728C7048200432622 /* Network */,
+				5BF329DC8D2F3C6413B56DE0 /* Visualizer */,
 				4389383228C6618E00825664 /* Crawler.swift */,
 				43C1D26F28C734D000432622 /* HTMLLinkParser.swift */,
 				43B7344628C8AD4800AE741D /* OutputGenerator.swift */,
@@ -190,6 +200,16 @@
 			children = (
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		5BF329DC8D2F3C6413B56DE0 /* Visualizer */ = {
+			isa = PBXGroup;
+			children = (
+				B3B2AAB5A41E4C134E00B2B0 /* Visualizer.swift */,
+				6E802E373ADFE7E119B0906D /* VisualizerTemplate.swift */,
+				5B1784DEEF394CE8B97AEB5E /* D3Hierarchy.swift */,
+			);
+			path = Visualizer;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -305,6 +325,9 @@
 				433FACE928C8470500B898C0 /* TaskPool.swift in Sources */,
 				43C1D24428C707EB00432622 /* CommandArgumentResult.swift in Sources */,
 				43C1D24128C707AD00432622 /* CommandArgumentParser.swift in Sources */,
+				8A47E2BF2926FAFB8B92B113 /* Visualizer.swift in Sources */,
+				A6E3CFA4F21515649D6514D9 /* VisualizerTemplate.swift in Sources */,
+				2A1C398229FA34E05C64F079 /* D3Hierarchy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -322,6 +345,9 @@
 				5F41B96130545697006072D4 /* CacheControl.swift in Sources */,
 				5F41B96230545697006072D4 /* NetworkLoader.swift in Sources */,
 				5F41B96330545697006072D4 /* CommandArgumentResult.swift in Sources */,
+				7B1A9F3168F1113430817680 /* Visualizer.swift in Sources */,
+				079FAE63B208993C703706BE /* VisualizerTemplate.swift in Sources */,
+				7C4D3C186B75627E47B5BF63 /* D3Hierarchy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -27,13 +27,13 @@ class OutputGenerator {
             pids.append(String(pid))
         }
         let cc: CacheControl = CacheControl(headers: task.header);
-        let keywords = task.matchedKeywords.joined(separator: ",")
-        
+        let keywords = task.matchedKeywords.map { self.field($0) }.joined(separator: ",")
+
         // Keywords may be empty, so every column after it needs a placeholder --
         // otherwise the field count varies per row and the output stops being
         // parseable by column index.
         let keywordsField = keywords.isEmpty ? "-" : keywords
-        let errorField = task.transportError ?? "-"
+        let errorField = self.field(task.transportError ?? "-")
         // The seed URL has no parents, so this field was EMPTY for it and every
         // column after shifted left by one -- the row could not be read by index.
         let parentField = pids.isEmpty ? "-" : pids.joined(separator: ",")
@@ -42,6 +42,15 @@ class OutputGenerator {
         // pre-existing column keeps its position -- a script written against
         // the old format (e.g. `awk '{print $7}'` for URL) still works.
         return String(pool.getId(forTask: task)) + " " + parentField + " " + String(task.code) + " " + cc.raw + " " + String(cc.maxAge) + " " + String(task.requestTime) + " " + task.url.absoluteString + " " + keywordsField + " " + String(task.attempts) + " " + errorField + " " + cc.expires + " " + String(task.bytes)
+    }
+
+    /// Free text inside one space-separated column: whitespace becomes "_" (same
+    /// convention as CacheControl.raw). Error comes from NetworkLoader.describe(),
+    /// whose `httpClient(...)` fallback can contain spaces, and Keywords are
+    /// user-supplied -- either would otherwise shift every later column.
+    static func field(_ value: String) -> String {
+        let escaped = value.components(separatedBy: .whitespacesAndNewlines).joined(separator: "_")
+        return escaped.isEmpty ? "-" : escaped
     }
 
     private static func generateOutputLineHeader() -> String
